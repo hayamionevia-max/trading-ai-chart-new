@@ -2405,6 +2405,9 @@ var savedNeonWidgetPosition = null;
 var autoSaveTimer = null;
 var chartVerticalPanOffset = 0;
 var chartVerticalPanDrag = null;
+var rateSyncTimer = null;
+var rateFetchInFlight = false;
+var currentLivePriceLine = null;
 
 function traceFlow(label, extra) {
     return;
@@ -2468,6 +2471,8 @@ function initChart() {
         upColor: 'transparent', downColor: 'transparent',
         borderUpColor: 'transparent', borderDownColor: 'transparent',
         wickUpColor: 'transparent', wickDownColor: 'transparent',
+        lastValueVisible: false,
+        priceLineVisible: false,
         priceFormat: {
             type: 'price',
             precision: 3,
@@ -2732,6 +2737,7 @@ function drawNeonCandles() {
     var W = neonCandleCanvas.width;
     var H = neonCandleCanvas.height;
     ctx.clearRect(0, 0, W, H);
+    var clipBottom = Math.max(0, H - 28);
 
     // Compute bar width from adjacent candles
     var barW = 8;
@@ -2748,6 +2754,11 @@ function drawNeonCandles() {
     var showBody   = document.getElementById('set-cand-body')   ? document.getElementById('set-cand-body').checked   : true;
     var showBorder = document.getElementById('set-cand-border') ? document.getElementById('set-cand-border').checked : true;
     var showWick   = document.getElementById('set-cand-wick')   ? document.getElementById('set-cand-wick').checked   : true;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, clipBottom);
+    ctx.clip();
 
     for (var ci = 0; ci < candles.length; ci++) {
         try {
@@ -2768,74 +2779,55 @@ function drawNeonCandles() {
 
             var bodyTop    = Math.min(openY, closeY);
             var bodyBottom = Math.max(openY, closeY);
-            var bodyH      = Math.max(bodyBottom - bodyTop, 1);
+            var bodyH      = Math.max(bodyBottom - bodyTop, 2);
             var cxR = Math.round(cx);
             var bx  = Math.round(cx - bodyW / 2);
 
             ctx.save();
 
-            // -- WICKS: Only OUTSIDE the body (split wick = zero penetration) --
             if (showWick) {
-                var drawWick = function(y1, y2) {
-                    if (Math.abs(y2 - y1) < 0.5) return;
-                    // Layer 1: wide ambient glow
-                    ctx.shadowBlur = 18;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.5)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.3)';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath(); ctx.moveTo(cxR + 0.5, y1); ctx.lineTo(cxR + 0.5, y2); ctx.stroke();
-                    // Layer 2: medium glow
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.9)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.7)';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.moveTo(cxR + 0.5, y1); ctx.lineTo(cxR + 0.5, y2); ctx.stroke();
-                    // Layer 3: bright core
-                    ctx.shadowBlur = 3;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(cxR + 0.5, y1); ctx.lineTo(cxR + 0.5, y2); ctx.stroke();
-                };
-                // Upper wick: high to body top
-                if (highY < bodyTop - 0.5) drawWick(highY, bodyTop);
-                // Lower wick: body bottom to low
-                if (lowY > bodyBottom + 0.5) drawWick(bodyBottom, lowY);
+                var wickTop = Math.max(-8, Math.min(highY, clipBottom + 8));
+                var wickBottom = Math.max(-8, Math.min(lowY, clipBottom + 8));
+                if (Math.abs(wickBottom - wickTop) >= 0.5) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
+                    ctx.lineWidth = 1.25;
+                    ctx.beginPath();
+                    ctx.moveTo(cxR + 0.5, wickTop);
+                    ctx.lineTo(cxR + 0.5, wickBottom);
+                    ctx.stroke();
+                }
             }
 
-            // -- BODY: Glassy semi-transparent fill + glowing neon border --
             if (showBody || showBorder) {
+                var clampedTop = Math.max(-8, Math.min(bodyTop, clipBottom + 8));
+                var clampedBottom = Math.max(-8, Math.min(bodyBottom, clipBottom + 8));
+                var clampedBodyH = Math.max(clampedBottom - clampedTop, 2);
                 if (showBody) {
-                    // Ambient body glow fill
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.5)';
-                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.12)';
-                    ctx.fillRect(bx, bodyTop, bodyW, bodyH);
-                    // Inner fill
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.4)';
-                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.1)';
-                    ctx.fillRect(bx + 1, bodyTop + 1, Math.max(bodyW - 2, 0), Math.max(bodyH - 2, 0));
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.35)';
+                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.20)';
+                    ctx.fillRect(bx, clampedTop, bodyW, clampedBodyH);
                 }
                 if (showBorder) {
-                    // Layer 1: outer glow border
-                    ctx.shadowBlur = 16;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.7)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.5)';
-                    ctx.lineWidth = 2.5;
-                    ctx.strokeRect(bx + 0.5, bodyTop + 0.5, Math.max(bodyW - 1, 0), Math.max(bodyH - 1, 0));
-                    // Layer 2: bright core border
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.65)';
+                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
+                    ctx.lineWidth = 1.15;
+                    ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
                     ctx.shadowBlur = 4;
                     ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
                     ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(bx + 0.5, bodyTop + 0.5, Math.max(bodyW - 1, 0), Math.max(bodyH - 1, 0));
+                    ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
                 }
             }
 
             ctx.restore();
         } catch (e) { /* skip malformed candle */ }
     }
+    ctx.restore();
 }
 
 function onMouseDown(e) {
@@ -4082,6 +4074,13 @@ function mapBarTimeForChart(epochSeconds, tf, targetOffset, timeShift) {
     return Math.floor(shiftedEpoch / intervalSeconds) * intervalSeconds;
 }
 
+function isBarAlignedForTf(epochSeconds, tf) {
+    if (!isFinite(epochSeconds)) return false;
+    var intervalSeconds = getTfIntervalSeconds(tf);
+    if (!intervalSeconds) return true;
+    return epochSeconds % intervalSeconds === 0;
+}
+
 function upsertLatestCandle(mappedBar, exactMatch) {
     traceFlow('upsertLatestCandle', { exactMatch: !!exactMatch, hasCandles: !!(candles && candles.length), mappedTime: mappedBar && mappedBar.time });
     if (!mappedBar || mappedBar.time === undefined || mappedBar.time === null) return;
@@ -4094,7 +4093,16 @@ function upsertLatestCandle(mappedBar, exactMatch) {
     }
 
     var last = candles[candles.length - 1];
-    if (last.time === mappedBar.time) {
+    var existingIndex = -1;
+    for (var i = candles.length - 1; i >= 0; i--) {
+        if (candles[i].time === mappedBar.time) {
+            existingIndex = i;
+            break;
+        }
+    }
+
+    if (existingIndex !== -1) {
+        var current = candles[existingIndex];
         var mergedBar = exactMatch ? {
             time: mappedBar.time,
             open: mappedBar.open,
@@ -4102,24 +4110,43 @@ function upsertLatestCandle(mappedBar, exactMatch) {
             low: mappedBar.low,
             close: mappedBar.close
         } : {
-            time: last.time,
-            open: last.open,
-            high: Math.max(last.high, mappedBar.high),
-            low: Math.min(last.low, mappedBar.low),
+            time: current.time,
+            open: current.open,
+            high: Math.max(current.high, mappedBar.high),
+            low: Math.min(current.low, mappedBar.low),
             close: mappedBar.close
         };
-        candles[candles.length - 1] = mergedBar;
-        cSeries.update(mergedBar);
-    } else {
+        candles[existingIndex] = mergedBar;
+        if (existingIndex === candles.length - 1) {
+            cSeries.update(mergedBar);
+        } else {
+            traceFlow('setData from upsertLatestCandle:existing', { points: candles.length, existingIndex: existingIndex });
+            cSeries.setData(candles);
+        }
+    } else if (compareBarTimes(mappedBar.time, last.time) > 0) {
         candles.push(mappedBar);
         if (candles.length > 3000) candles.shift();
         cSeries.update(mappedBar);
+    } else {
+        var insertAt = candles.length;
+        for (var ii = candles.length - 1; ii >= 0; ii--) {
+            if (compareBarTimes(candles[ii].time, mappedBar.time) < 0) {
+                insertAt = ii + 1;
+                break;
+            }
+            if (ii === 0) insertAt = 0;
+        }
+        candles.splice(insertAt, 0, mappedBar);
+        if (candles.length > 3000) candles.shift();
+        traceFlow('setData from upsertLatestCandle:insert', { points: candles.length, insertAt: insertAt });
+        cSeries.setData(candles);
     }
     setTimeout(drawNeonCandles, 30);
 }
 
 function applyLiveBarToChart(rawBar) {
     if (!rawBar || !isFinite(rawBar.time)) return;
+    if (!isBarAlignedForTf(rawBar.time, currentTf)) return;
     var mappedBar = {
         time: mapBarTimeForChart(rawBar.time, currentTf, currentTargetOffset, currentTimeShift),
         open: rawBar.open,
@@ -4146,6 +4173,46 @@ function startTickerSync() {
     }, 8000);
 }
 
+function stopRateSync() {
+    rateFetchInFlight = false;
+    if (rateSyncTimer) {
+        clearInterval(rateSyncTimer);
+        rateSyncTimer = null;
+    }
+}
+
+function requestLiveRateUpdate() {
+    if (rateFetchInFlight || isLoadingCandles || !candles || candles.length === 0) return;
+    rateFetchInFlight = true;
+
+    var prev = liveP;
+    var isJpy = currentSymbol.indexOf('JPY') !== -1;
+    var precision = isJpy ? 3 : 5;
+
+    fetch(apiHost + '/v1/rate?symbol=' + currentSymbol)
+        .then(function(res) {
+            if (!res.ok) throw new Error('rate API returned ' + res.status);
+            return res.json();
+        })
+        .then(function(data) {
+            if (!data || typeof data.price !== 'number') throw new Error('rate API returned no price');
+            liveP = data.price;
+            updateLivePriceUI(prev, precision);
+        })
+        .catch(function(err) {
+            console.warn('rate update skipped:', err);
+        })
+        .finally(function() {
+            rateFetchInFlight = false;
+        });
+}
+
+function startRateSync() {
+    stopRateSync();
+    requestLiveRateUpdate();
+    rateSyncTimer = setInterval(requestLiveRateUpdate, 500);
+}
+
 function syncLatestCandlesFromTicker(reason) {
     if (isLoadingCandles || tickerSyncInFlight) return;
     tickerSyncInFlight = true;
@@ -4159,16 +4226,30 @@ function syncLatestCandlesFromTicker(reason) {
         .then(function(realData) {
             if (syncToken !== tickerSyncToken) return;
             if (!Array.isArray(realData) || realData.length === 0) throw new Error('ticker sync returned no candles');
-            var recentBars = realData.slice(-3);
-            var prev = liveP;
-            recentBars.forEach(function(bar) {
-                applyLiveBarToChart(bar);
+            var recentBars = realData.filter(function(bar) {
+                return bar && isBarAlignedForTf(bar.time, tf);
+            }).slice(-3);
+            if (recentBars.length === 0) throw new Error('ticker sync returned no aligned candles');
+            var currentRateBarTime = getCurrentRateBarTime();
+            recentBars.forEach(function(bar, idx) {
+                var patchedBar = bar;
+                var mappedTickerTime = mapBarTimeForChart(bar.time, tf, currentTargetOffset, currentTimeShift);
+                var shouldMergeLivePrice =
+                    idx === recentBars.length - 1 &&
+                    typeof liveP === 'number' &&
+                    isFinite(liveP) &&
+                    mappedTickerTime === currentRateBarTime;
+                if (shouldMergeLivePrice) {
+                    patchedBar = {
+                        time: bar.time,
+                        open: bar.open,
+                        high: Math.max(bar.high, liveP),
+                        low: Math.min(bar.low, liveP),
+                        close: liveP
+                    };
+                }
+                applyLiveBarToChart(patchedBar);
             });
-            var lastBar = recentBars[recentBars.length - 1];
-            if (lastBar && typeof lastBar.close === 'number') {
-                liveP = lastBar.close;
-            }
-            updateLivePriceText(prev, currentSymbol.indexOf('JPY') !== -1 ? 3 : 5);
             calcIndicators();
             checkAlerts(liveP);
             updateAISidebar();
@@ -4186,13 +4267,57 @@ function syncLatestCandlesFromTicker(reason) {
 function applyRatePriceToLatestCandle(price) {
     if (!candles || candles.length === 0) return;
     var last = candles[candles.length - 1];
+    var nowEpoch = Math.floor(Date.now() / 1000);
+    var barTime = mapBarTimeForChart(nowEpoch, currentTf, currentTargetOffset, currentTimeShift);
+
+    if (barTime === undefined || barTime === null) {
+        barTime = last.time;
+    }
+
+    var isSameBar = last.time === barTime;
+    var isForwardBar = false;
+    if (!isSameBar) {
+        if (typeof last.time === 'string' && typeof barTime === 'string') {
+            isForwardBar = barTime > last.time;
+        } else {
+            isForwardBar = Number(barTime) > Number(last.time);
+        }
+    }
+
+    if (isSameBar || !isForwardBar) {
+        upsertLatestCandle({
+            time: last.time,
+            open: last.open,
+            high: Math.max(last.high, price),
+            low: Math.min(last.low, price),
+            close: price
+        }, false);
+        return;
+    }
+
+    var nextOpen = (typeof last.close === 'number' && isFinite(last.close)) ? last.close : price;
     upsertLatestCandle({
-        time: last.time,
-        open: last.open,
-        high: Math.max(last.high, price),
-        low: Math.min(last.low, price),
+        time: barTime,
+        open: nextOpen,
+        high: price,
+        low: price,
         close: price
-    }, false);
+    }, true);
+}
+
+function compareBarTimes(a, b) {
+    if (typeof a === 'string' && typeof b === 'string') {
+        if (a === b) return 0;
+        return a < b ? -1 : 1;
+    }
+    var na = Number(a);
+    var nb = Number(b);
+    if (na === nb) return 0;
+    return na < nb ? -1 : 1;
+}
+
+function getCurrentRateBarTime() {
+    return mapBarTimeForChart(Math.floor(Date.now() / 1000), currentTf, currentTargetOffset, currentTimeShift);
 }
 
 function startTvLiveStream(symbol, tf) {
@@ -4281,6 +4406,7 @@ function loadTf(tf) {
     clearManual(true);
     stopTvLiveStream();
     stopTickerSync();
+    stopRateSync();
     isLoadingCandles = true;
     currentTf = tf;
     syncTfSelect();
@@ -4302,14 +4428,15 @@ function loadTf(tf) {
         
         var mapped = realData.map(function(d) {
             var isDailyOrWeekly = (tf.toLowerCase() === '1d' || tf.toLowerCase() === '1w');
+            if (!isDailyOrWeekly && !isBarAlignedForTf(d.time, tf)) return null;
             return {
-                time: isDailyOrWeekly ? formatUnixToDateString(d.time, targetOffset) : d.time + shift,
+                time: mapBarTimeForChart(d.time, tf, targetOffset, shift),
                 open: d.open,
                 high: d.high,
                 low: d.low,
                 close: d.close
             };
-        });
+        }).filter(Boolean);
         
         mapped.sort(function(a, b) {
             if (typeof a.time === 'string' && typeof b.time === 'string') {
@@ -4375,19 +4502,11 @@ function loadTf(tf) {
         updatePanel(tf);
         runAI(false);
         
-        if (candles.length > 0) {
-            var last = candles[candles.length - 1];
-            liveP = last.close;
-            var el = document.getElementById('pv');
-            if (el) el.textContent = liveP.toFixed(precision);
-            var neonEl = document.getElementById('neon-price-val');
-            if (neonEl) neonEl.textContent = liveP.toFixed(precision);
-        }
-        
         updateAISidebar();
         renderIndicatorLegend();
         isLoadingCandles = false;
         startTickerSync();
+        startRateSync();
         renderBarCountdown();
     }
 
@@ -5982,6 +6101,7 @@ function updateSettings() {
         var sw = document.getElementById('sw-price-line');
         if (sw) sw.style.background = priceLineColor.value;
     }
+    syncCurrentLivePriceLine();
     
     var wmModeEl = document.getElementById('set-watermark-mode');
     var isWmVisible = wmModeEl ? (wmModeEl.value !== 'none') : true;
@@ -6432,32 +6552,6 @@ function toggleManualObject(id, type) {
 
 /* ─── LIVE TICK ─── */
 var liveP = 159.268;
-setInterval(function() {
-    if (isLoadingCandles || !candles || candles.length === 0) return;
-    var prev = liveP;
-    var isJpy = currentSymbol.indexOf('JPY') !== -1;
-    var precision = isJpy ? 3 : 5;
-
-    // リアルタイム表示はローカルAPIの実データを正とする。TradingView WS失敗は致命扱いしない。
-    fetch(apiHost + '/v1/rate?symbol=' + currentSymbol)
-        .then(function(res) {
-            if (!res.ok) throw new Error('rate API returned ' + res.status);
-            return res.json();
-        })
-        .then(function(data) {
-            if (!data || typeof data.price !== 'number') throw new Error('rate API returned no price');
-            liveP = data.price;
-            updateLivePriceUI(prev, precision);
-        })
-        .catch(function(err) {
-            // 価格更新だけ失敗した場合はチャート全体を失敗扱いにしない。
-            if (typeof tvLive.lastPrice === 'number') {
-                liveP = tvLive.lastPrice;
-                updateLivePriceUI(prev, precision);
-            }
-            console.warn('rate update skipped:', err);
-        });
-}, 2000);
 
 function updateLivePriceUI(prev, precision) {
     updateLivePriceText(prev, precision);
@@ -6477,6 +6571,38 @@ function updateLivePriceUI(prev, precision) {
     }
 }
 
+function syncCurrentLivePriceLine() {
+    if (!cSeries || typeof liveP !== 'number' || !isFinite(liveP)) return;
+
+    var setCur = document.getElementById('set-show-cur');
+    var mode = setCur ? setCur.value : 'name-value-line';
+    var priceLineColor = document.getElementById('set-price-line-color');
+    var color = priceLineColor ? priceLineColor.value : '#00ff2a';
+    var shouldShow = mode !== 'none';
+
+    if (!currentLivePriceLine) {
+        currentLivePriceLine = cSeries.createPriceLine({
+            price: liveP,
+            color: shouldShow ? color : 'transparent',
+            lineWidth: shouldShow ? 1.5 : 0,
+            lineStyle: 0,
+            axisLabelVisible: shouldShow,
+            title: ''
+        });
+        return;
+    }
+
+    try {
+        currentLivePriceLine.applyOptions({
+            price: liveP,
+            color: shouldShow ? color : 'transparent',
+            lineWidth: shouldShow ? 1.5 : 0,
+            axisLabelVisible: shouldShow,
+            title: ''
+        });
+    } catch (e) {}
+}
+
 function updateLivePriceText(prev, precision) {
     var el = document.getElementById('pv');
     if (el) {
@@ -6488,6 +6614,7 @@ function updateLivePriceText(prev, precision) {
     if (neonEl) {
         neonEl.textContent = liveP.toFixed(precision);
     }
+    syncCurrentLivePriceLine();
 }
 
 /* ─── TRADINGVIEW FLYOUT MENUS INTERACTIVE HANDLERS ─── */
