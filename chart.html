@@ -2779,23 +2779,36 @@ function drawNeonCandles() {
 
             var bodyTop    = Math.min(openY, closeY);
             var bodyBottom = Math.max(openY, closeY);
-            var bodyH      = Math.max(bodyBottom - bodyTop, 2);
+            var bodyH      = Math.max(bodyBottom - bodyTop, 1);
             var cxR = Math.round(cx);
             var bx  = Math.round(cx - bodyW / 2);
 
             ctx.save();
 
             if (showWick) {
-                var wickTop = Math.max(-8, Math.min(highY, clipBottom + 8));
-                var wickBottom = Math.max(-8, Math.min(lowY, clipBottom + 8));
-                if (Math.abs(wickBottom - wickTop) >= 0.5) {
+                var upperWickTop = Math.max(-8, Math.min(highY, clipBottom + 8));
+                var upperWickBottom = Math.max(-8, Math.min(bodyTop, clipBottom + 8));
+                if (upperWickBottom - upperWickTop > 0.5) {
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
                     ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
-                    ctx.lineWidth = 1.25;
+                    ctx.lineWidth = 1.15;
                     ctx.beginPath();
-                    ctx.moveTo(cxR + 0.5, wickTop);
-                    ctx.lineTo(cxR + 0.5, wickBottom);
+                    ctx.moveTo(cxR + 0.5, upperWickTop);
+                    ctx.lineTo(cxR + 0.5, upperWickBottom);
+                    ctx.stroke();
+                }
+
+                var lowerWickTop = Math.max(-8, Math.min(bodyBottom, clipBottom + 8));
+                var lowerWickBottom = Math.max(-8, Math.min(lowY, clipBottom + 8));
+                if (lowerWickBottom - lowerWickTop > 0.5) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
+                    ctx.lineWidth = 1.15;
+                    ctx.beginPath();
+                    ctx.moveTo(cxR + 0.5, lowerWickTop);
+                    ctx.lineTo(cxR + 0.5, lowerWickBottom);
                     ctx.stroke();
                 }
             }
@@ -2807,19 +2820,19 @@ function drawNeonCandles() {
                 if (showBody) {
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.35)';
-                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.20)';
+                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.44)';
                     ctx.fillRect(bx, clampedTop, bodyW, clampedBodyH);
                 }
                 if (showBorder) {
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.65)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
-                    ctx.lineWidth = 1.15;
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.80)';
+                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.98)';
+                    ctx.lineWidth = 1.05;
                     ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
                     ctx.shadowBlur = 4;
                     ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
-                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',1)';
+                    ctx.lineWidth = 0.9;
                     ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
                 }
             }
