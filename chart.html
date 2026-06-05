@@ -962,28 +962,27 @@
             }
         }
         
-        /* Neon effect toggle button styles */
-        .neon-toggle-btn {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.2);
+        /* Neon effect toggle text link styles */
+        .neon-effect-text-toggle {
+            position: absolute;
+            top: 25px;
+            right: 18px;
+            z-index: 150;
             cursor: pointer;
-            outline: none;
+            font-family: 'Outfit', 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            user-select: none;
             transition: all 0.2s ease;
-            margin: 0 4px;
-            flex-shrink: 0;
-            display: inline-block;
+            letter-spacing: 0.5px;
         }
-        .neon-toggle-btn.on {
-            background-color: #00e676;
-            box-shadow: 0 0 8px #00e676, 0 0 15px #00e676;
-            border-color: #ffffff;
+        .neon-effect-text-toggle.on {
+            color: #00e676;
+            text-shadow: 0 0 6px #00e676, 0 0 12px rgba(0, 230, 118, 0.4);
         }
-        .neon-toggle-btn.off {
-            background-color: #f23645;
-            box-shadow: 0 0 8px #f23645, 0 0 15px #f23645;
-            border-color: #ffffff;
+        .neon-effect-text-toggle.off {
+            color: #8a1a24;
+            text-shadow: none;
         }
         
         /* Body class override for turning off neon glow */
@@ -992,7 +991,7 @@
             color: #d1d4dc !important;
         }
         body.neon-off .neon-price-widget {
-            border-left-color: #f23645 !important;
+            border-left-color: #8a1a24 !important;
         }
     </style>
 </head>
@@ -1415,10 +1414,11 @@
             <div id="chart-time-display" class="chart-time-display">14:00:00</div>
         </div>
         <div id="laser-pointer-dot" class="laser-pointer-dot"></div>
+        <!-- Neon Effect Toggle Text Button -->
+        <div id="neon-effect-text-toggle" class="neon-effect-text-toggle" onclick="toggleNeonEffectGlobal(event)" title="ネオンエフェクト ON/OFF">ネオンエフェクト</div>
         <!-- Floating 7-Segment Neon Price Widget -->
         <div id="neon-price-widget" class="neon-price-widget">
             <span id="neon-price-val" class="neon-price-val neon-price-drag-handle">159.268</span>
-            <button id="neon-toggle-btn" class="neon-toggle-btn on" onclick="toggleNeonEffectGlobal(event)" title="ネオン効果 ON/OFF"></button>
             <button class="neon-settings-btn" id="neon-settings-btn" onclick="toggleNeonPopover(event)" title="ネオン表示設定">⚙</button>
             <div class="neon-popover" id="neon-popover" onclick="event.stopPropagation()">
                 <div class="neon-popover-title">ネオン現在値設定</div>
@@ -4556,8 +4556,8 @@ function loadTf(tf) {
         if (!restoredView && candles.length > 0) {
             var len = candles.length;
             chart.timeScale().setVisibleLogicalRange({
-                from: len - 90,
-                to: len + 65
+                from: len - 100,
+                to: len + 15
             });
         } else if (!restoredView) {
             traceFlow('fitContent from applyCandles', { tf: tf });
@@ -7015,7 +7015,7 @@ function applySavedDefault() {
             syncTfSelect();
         }
         savedChartViewState = s.chartView || null;
-        restoreSavedViewOnNextLoad = !!(savedChartViewState && savedChartViewState.logicalRange);
+        restoreSavedViewOnNextLoad = false;
         savedSetModalPosition = s.modalPosition || null;
         savedNeonWidgetPosition = s.neonWidgetPosition || null;
         chartVerticalPanOffset = typeof s.verticalPanOffset === 'number' ? s.verticalPanOffset : 0;
@@ -7327,15 +7327,15 @@ function toggleNeonWidget(visible) {
 var neonEffectEnabled = localStorage.getItem('neonEffectEnabled') !== 'false';
 
 function updateNeonEffectState() {
-    var btn = document.getElementById('neon-toggle-btn');
-    if (!btn) return;
+    var toggleEl = document.getElementById('neon-effect-text-toggle');
+    if (!toggleEl) return;
     if (neonEffectEnabled) {
-        btn.classList.remove('off');
-        btn.classList.add('on');
+        toggleEl.classList.remove('off');
+        toggleEl.classList.add('on');
         document.body.classList.remove('neon-off');
     } else {
-        btn.classList.remove('on');
-        btn.classList.add('off');
+        toggleEl.classList.remove('on');
+        toggleEl.classList.add('off');
         document.body.classList.add('neon-off');
     }
     // Redraw the candles
