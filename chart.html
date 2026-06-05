@@ -4545,37 +4545,40 @@ function loadTf(tf) {
         currentAIAnalysis = detectLevels(candles, currentSymbol);
         calcIndicators(); 
         
-        var restoredView = false;
-        if (pendingLogicalRange) {
-            restoredView = restoreVisibleLogicalRange(pendingLogicalRange);
-            pendingLogicalRange = null;
-        } else if (restoreSavedViewOnNextLoad && savedChartViewState && savedChartViewState.logicalRange) {
-            restoredView = restoreVisibleLogicalRange(savedChartViewState.logicalRange);
-            restoreSavedViewOnNextLoad = false;
-        }
+        clearTimeout(window.viewAdjustmentTimer);
+        window.viewAdjustmentTimer = setTimeout(function() {
+            var restoredView = false;
+            if (pendingLogicalRange) {
+                restoredView = restoreVisibleLogicalRange(pendingLogicalRange);
+                pendingLogicalRange = null;
+            } else if (restoreSavedViewOnNextLoad && savedChartViewState && savedChartViewState.logicalRange) {
+                restoredView = restoreVisibleLogicalRange(savedChartViewState.logicalRange);
+                restoreSavedViewOnNextLoad = false;
+            }
 
-        if (!restoredView && candles.length > 0) {
-            var len = candles.length;
-            chart.timeScale().setVisibleLogicalRange({
-                from: len - 100,
-                to: len + 15
-            });
-        } else if (!restoredView) {
-            traceFlow('fitContent from applyCandles', { tf: tf });
-            chart.timeScale().fitContent();
-        }
-        applyChartVerticalPan();
-        setTimeout(unlockPriceScalesForManualDrag, 0);
-        clearAI();
-        updatePanel(tf);
-        runAI(false);
-        
-        updateAISidebar();
-        renderIndicatorLegend();
-        isLoadingCandles = false;
-        startTickerSync();
-        startRateSync();
-        renderBarCountdown();
+            if (!restoredView && candles.length > 0) {
+                var len = candles.length;
+                chart.timeScale().setVisibleLogicalRange({
+                    from: len - 100,
+                    to: len + 15
+                });
+            } else if (!restoredView) {
+                traceFlow('fitContent from applyCandles', { tf: tf });
+                chart.timeScale().fitContent();
+            }
+            applyChartVerticalPan();
+            setTimeout(unlockPriceScalesForManualDrag, 0);
+            clearAI();
+            updatePanel(tf);
+            runAI(false);
+            
+            updateAISidebar();
+            renderIndicatorLegend();
+            isLoadingCandles = false;
+            startTickerSync();
+            startRateSync();
+            renderBarCountdown();
+        }, 100);
     }
 
     // 実データ表示の安定優先: ローカルAPIを正とする。TradingView WSは初期表示の主経路にしない。
