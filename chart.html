@@ -2493,6 +2493,7 @@ function initChart() {
     });
 
     chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        if (isLoadingCandles) return;
         var logicalRange = captureVisibleLogicalRange();
         if (!logicalRange) return;
         if (shouldPersistChartViewAcrossTf()) {
