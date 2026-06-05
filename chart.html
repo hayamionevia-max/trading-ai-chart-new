@@ -961,6 +961,39 @@
                 height: 100%;
             }
         }
+        
+        /* Neon effect toggle button styles */
+        .neon-toggle-btn {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            margin: 0 4px;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+        .neon-toggle-btn.on {
+            background-color: #00e676;
+            box-shadow: 0 0 8px #00e676, 0 0 15px #00e676;
+            border-color: #ffffff;
+        }
+        .neon-toggle-btn.off {
+            background-color: #f23645;
+            box-shadow: 0 0 8px #f23645, 0 0 15px #f23645;
+            border-color: #ffffff;
+        }
+        
+        /* Body class override for turning off neon glow */
+        body.neon-off .neon-price-val {
+            text-shadow: none !important;
+            color: #d1d4dc !important;
+        }
+        body.neon-off .neon-price-widget {
+            border-left-color: #f23645 !important;
+        }
     </style>
 </head>
 <body class="tab-chart">
@@ -1385,6 +1418,7 @@
         <!-- Floating 7-Segment Neon Price Widget -->
         <div id="neon-price-widget" class="neon-price-widget">
             <span id="neon-price-val" class="neon-price-val neon-price-drag-handle">159.268</span>
+            <button id="neon-toggle-btn" class="neon-toggle-btn on" onclick="toggleNeonEffectGlobal(event)" title="ネオン効果 ON/OFF"></button>
             <button class="neon-settings-btn" id="neon-settings-btn" onclick="toggleNeonPopover(event)" title="ネオン表示設定">⚙</button>
             <div class="neon-popover" id="neon-popover" onclick="event.stopPropagation()">
                 <div class="neon-popover-title">ネオン現在値設定</div>
@@ -2789,8 +2823,12 @@ function drawNeonCandles() {
                 var upperWickTop = Math.max(-8, Math.min(highY, clipBottom + 8));
                 var upperWickBottom = Math.max(-8, Math.min(bodyTop, clipBottom + 8));
                 if (upperWickBottom - upperWickTop > 0.5) {
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    if (neonEffectEnabled) {
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
                     ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
                     ctx.lineWidth = 1.15;
                     ctx.beginPath();
@@ -2802,8 +2840,12 @@ function drawNeonCandles() {
                 var lowerWickTop = Math.max(-8, Math.min(bodyBottom, clipBottom + 8));
                 var lowerWickBottom = Math.max(-8, Math.min(lowY, clipBottom + 8));
                 if (lowerWickBottom - lowerWickTop > 0.5) {
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    if (neonEffectEnabled) {
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
                     ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.95)';
                     ctx.lineWidth = 1.15;
                     ctx.beginPath();
@@ -2818,22 +2860,34 @@ function drawNeonCandles() {
                 var clampedBottom = Math.max(-8, Math.min(bodyBottom, clipBottom + 8));
                 var clampedBodyH = Math.max(clampedBottom - clampedTop, 2);
                 if (showBody) {
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.35)';
-                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.44)';
+                    if (neonEffectEnabled) {
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.35)';
+                        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.44)';
+                    } else {
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.8)';
+                    }
                     ctx.fillRect(bx, clampedTop, bodyW, clampedBodyH);
                 }
                 if (showBorder) {
-                    ctx.shadowBlur = 6;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.80)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.98)';
-                    ctx.lineWidth = 1.05;
-                    ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
-                    ctx.shadowBlur = 4;
-                    ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-                    ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',1)';
-                    ctx.lineWidth = 0.9;
-                    ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
+                    if (neonEffectEnabled) {
+                        ctx.shadowBlur = 6;
+                        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.80)';
+                        ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.98)';
+                        ctx.lineWidth = 1.05;
+                        ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
+                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',1)';
+                        ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',1)';
+                        ctx.lineWidth = 0.9;
+                        ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
+                    } else {
+                        ctx.shadowBlur = 0;
+                        ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.98)';
+                        ctx.lineWidth = 1.05;
+                        ctx.strokeRect(bx + 0.5, clampedTop + 0.5, Math.max(bodyW - 1, 0), Math.max(clampedBodyH - 1, 0));
+                    }
                 }
             }
 
@@ -7047,6 +7101,7 @@ function initNeonDisplay() {
         updateCanvasStyle(true);
         updateScaleTextStyle(true);
     }
+    updateNeonEffectState();
 }
 
 function updateCanvasStyle(isInit) {
@@ -7267,6 +7322,32 @@ function toggleNeonWidget(visible) {
     var setVisibleToggle = document.getElementById('set-neon-enabled');
     if (setVisibleToggle) setVisibleToggle.checked = visible;
     maybeAutoSaveSettings();
+}
+
+var neonEffectEnabled = localStorage.getItem('neonEffectEnabled') !== 'false';
+
+function updateNeonEffectState() {
+    var btn = document.getElementById('neon-toggle-btn');
+    if (!btn) return;
+    if (neonEffectEnabled) {
+        btn.classList.remove('off');
+        btn.classList.add('on');
+        document.body.classList.remove('neon-off');
+    } else {
+        btn.classList.remove('on');
+        btn.classList.add('off');
+        document.body.classList.add('neon-off');
+    }
+    // Redraw the candles
+    requestAnimationFrame(drawNeonCandles);
+}
+
+function toggleNeonEffectGlobal(event) {
+    if (event) event.stopPropagation();
+    neonEffectEnabled = !neonEffectEnabled;
+    localStorage.setItem('neonEffectEnabled', neonEffectEnabled ? 'true' : 'false');
+    updateNeonEffectState();
+    toast(neonEffectEnabled ? 'ネオンエフェクトを有効化しました' : 'ネオンエフェクトを無効化しました');
 }
 
 function toggleNeonPopover(event) {
