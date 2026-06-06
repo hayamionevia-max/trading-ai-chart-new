@@ -2711,8 +2711,6 @@ function initChart() {
     // Neon candle canvas engine
     initNeonCandleCanvas();
 
-    loadTf('5m');
-
     window.addEventListener('resize', function() {
         var e = document.getElementById('chart-el');
         traceFlow('chart.resize from window.resize', { width: e ? e.offsetWidth : null, height: e ? e.offsetHeight : null });
@@ -7373,6 +7371,9 @@ function initNeonDisplay() {
         
         updateCanvasStyle(true);
         updateScaleTextStyle(true);
+        
+        // 保存設定がない場合の初期ロードを実行（デフォルト）
+        loadTf(currentTf);
     }
     updateNeonEffectState();
 }
