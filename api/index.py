@@ -1,6 +1,11 @@
 import os
 import sys
 import subprocess
+import random
+import string
+import time
+import json
+import websocket
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -256,8 +261,137 @@ def get_evolution_status():
     else:
         return {"status": "completed", "returncode": poll_result}
 
-@app.get("/v1/ticker")
-def get_ticker(symbol: str = "USDJPY", tf: str = "15m"):
+def generate_session_id():
+    return "cs_" + "".join(random.choices(string.ascii_lowercase + string.digits, k=12))
+
+def parse_tv_frames(raw_str: str) -> List[str]:
+    out = []
+    i = 0
+    while i < len(raw_str):
+        if raw_str[i:i+3] != "~m~":
+            break
+        i += 3
+        sep = raw_str.find("~m~", i)
+        if sep == -1:
+            break
+        try:
+            length = int(raw_str[i:sep])
+        except ValueError:
+            break
+        i = sep + 3
+        out.append(raw_str[i:i+length])
+        i += length
+    return out
+
+def format_tv_message(func: str, args: list) -> str:
+    payload = json.dumps({"m": func, "p": args}, separators=(',', ':'))
+    return f"~m~{len(payload)}~m~{payload}"
+
+def fetch_tradingview_candles_backend(symbol: str, tf: str, bar_count: int = 300) -> List[dict]:
+    s = symbol.upper()
+    candidates = [f"OANDA:{s}", f"FX:{s}", f"FX_IDC:{s}"]
+    tf_map = {
+        "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1d": "1D", "1w": "1W"
+    }
+    interval = tf_map.get(tf.lower(), "5")
+
+    last_err = None
+    for candidate in candidates:
+        try:
+            print(f"[TV_BACKEND] Trying connection for candidate: {candidate}")
+            ws = websocket.create_connection(
+                "wss://data.tradingview.com/socket.io/websocket",
+                header={"Origin": "https://data.tradingview.com"},
+                timeout=5
+            )
+            
+            session_id = generate_session_id()
+            ws.send(format_tv_message("set_auth_token", ["unauthorized_user_token"]))
+            ws.send(format_tv_message("chart_create_session", [session_id, ""]))
+            ws.send(format_tv_message("switch_timezone", [session_id, "Asia/Tokyo"]))
+            
+            resolve_args = [
+                session_id,
+                "symbol_1",
+                "=" + json.dumps({
+                    "symbol": candidate,
+                    "adjustment": "splits",
+                    "session": "extended"
+                }, separators=(',', ':'))
+            ]
+            ws.send(format_tv_message("resolve_symbol", resolve_args))
+            ws.send(format_tv_message("create_series", [session_id, "s1", "s1", "symbol_1", interval, bar_count]))
+            
+            start_time = time.time()
+            data = []
+            
+            while time.time() - start_time < 8:
+                raw = ws.recv()
+                if not raw:
+                    continue
+                if raw.startswith("~h~"):
+                    ws.send(f"~m~{len(raw)}~m~{raw}")
+                    continue
+                
+                frames = parse_tv_frames(raw)
+                done = False
+                for frame in frames:
+                    if not frame.startswith("{"):
+                        continue
+                    try:
+                        msg = json.loads(frame)
+                    except Exception:
+                        continue
+                    
+                    p_arr = msg.get("p", [])
+                    if len(p_arr) < 2 or not isinstance(p_arr[1], dict):
+                        continue
+                    
+                    container = p_arr[1]
+                    series_obj = container.get("s1") or container.get("sds_1") or container.get("series_1")
+                    if not series_obj or not isinstance(series_obj, dict):
+                        continue
+                    
+                    bars = series_obj.get("s")
+                    if not isinstance(bars, list):
+                        continue
+                    
+                    temp_data = []
+                    for bar in bars:
+                        v = bar.get("v")
+                        if not isinstance(v, list) or len(v) < 5:
+                            continue
+                        temp_data.append({
+                            "time": int(v[0]),
+                            "open": float(v[1]),
+                            "high": float(v[2]),
+                            "low": float(v[3]),
+                            "close": float(v[4])
+                        })
+                    
+                    if temp_data:
+                        data = temp_data
+                        done = True
+                        break
+                
+                if done:
+                    break
+            
+            ws.close()
+            if data:
+                print(f"[TV_BACKEND] Successfully fetched {len(data)} candles for {candidate}")
+                return data
+            else:
+                last_err = Exception("No data in payload")
+        except Exception as e:
+            print(f"[TV_BACKEND] Error with candidate {candidate}: {e}")
+            last_err = e
+            
+    if last_err:
+        raise last_err
+    raise Exception("All candidates failed to resolve")
+
+def get_ticker_yahoo_fallback(symbol: str = "USDJPY", tf: str = "15m"):
     symbol_map = {
         "USDJPY": "USDJPY=X",
         "EURUSD": "EURUSD=X",
@@ -373,6 +507,52 @@ def get_ticker(symbol: str = "USDJPY", tf: str = "15m"):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/ticker")
+def get_ticker(symbol: str = "USDJPY", tf: str = "15m"):
+    try:
+        tf_count_map = {
+            "1m": 300, "5m": 2000, "15m": 2000, "1h": 2000, "4h": 1000, "1d": 780, "1w": 260
+        }
+        bar_count = tf_count_map.get(tf.lower(), 2000)
+        target_tf = "1h" if tf.lower() == "4h" else tf
+        
+        data = fetch_tradingview_candles_backend(symbol, target_tf, bar_count)
+        
+        if tf.lower() == "4h":
+            merged_data = []
+            current_candle = None
+            for candle in data:
+                group_id = candle["time"] // 14400
+                if current_candle is None:
+                    current_candle = {
+                        "time": group_id * 14400,
+                        "open": candle["open"],
+                        "high": candle["high"],
+                        "low": candle["low"],
+                        "close": candle["close"]
+                    }
+                elif current_candle["time"] // 14400 == group_id:
+                    current_candle["high"] = max(current_candle["high"], candle["high"])
+                    current_candle["low"] = min(current_candle["low"], candle["low"])
+                    current_candle["close"] = candle["close"]
+                else:
+                    merged_data.append(current_candle)
+                    current_candle = {
+                        "time": group_id * 14400,
+                        "open": candle["open"],
+                        "high": candle["high"],
+                        "low": candle["low"],
+                        "close": candle["close"]
+                    }
+            if current_candle:
+                merged_data.append(current_candle)
+            data = merged_data
+            
+        return data
+    except Exception as e:
+        print(f"[v1/ticker] TradingView WS fetch failed: {e}. Falling back to Yahoo Finance.")
+        return get_ticker_yahoo_fallback(symbol, tf)
 
 @app.get("/v1/rate")
 def get_rate(symbol: str = "USDJPY"):
