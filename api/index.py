@@ -509,15 +509,32 @@ def get_ticker_yahoo_fallback(symbol: str = "USDJPY", tf: str = "15m"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/v1/ticker")
-def get_ticker(symbol: str = "USDJPY", tf: str = "15m"):
+def get_ticker(symbol: str = "USDJPY", tf: str = "15m", before: Optional[int] = None):
     try:
         tf_count_map = {
-            "1m": 300, "5m": 2000, "15m": 2000, "1h": 2000, "4h": 1000, "1d": 780, "1w": 260
+            "1m": 300, "5m": 500, "15m": 500, "1h": 500, "4h": 250, "1d": 500, "1w": 260
         }
-        bar_count = tf_count_map.get(tf.lower(), 2000)
+        base_count = tf_count_map.get(tf.lower(), 500)
+
+        if before is not None:
+            # beforeまでの時間から遡る追加バー数を計算
+            tf_seconds_map = {
+                "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800
+            }
+            tf_sec = tf_seconds_map.get(tf.lower(), 300)
+            now_ts = int(time.time())
+            bars_from_before_to_now = max(0, (now_ts - before) // tf_sec)
+            # before以前の base_count 本 + beforeから現在までの本数 を合計で取得
+            bar_count = min(bars_from_before_to_now + base_count, 5000)
+        else:
+            bar_count = base_count
+
         target_tf = "1h" if tf.lower() == "4h" else tf
         
         data = fetch_tradingview_candles_backend(symbol, target_tf, bar_count)
+
+        if before is not None:
+            data = [d for d in data if d["time"] < before]
         
         if tf.lower() == "4h":
             merged_data = []

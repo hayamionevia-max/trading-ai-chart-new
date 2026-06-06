@@ -351,6 +351,32 @@
         
         .draw-hint { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: rgba(10,12,18,.93); border: 1px solid var(--blue); border-radius: 7px; padding: 7px 16px; font-size: 12px; color: var(--nb); pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 50; white-space: nowrap; }
         .draw-hint.vis { opacity: 1; }
+        /* ▶ 最新足へ戻るボタン */
+        #goto-latest-btn {
+            position: absolute;
+            bottom: 42px;
+            right: 58px;
+            z-index: 200;
+            width: 30px;
+            height: 30px;
+            background: rgba(20, 22, 35, 0.88);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 5px;
+            color: #c8cad4;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            padding: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        #goto-latest-btn:hover {
+            background: rgba(41, 98, 255, 0.35);
+            color: #fff;
+            border-color: rgba(41,98,255,0.6);
+        }
 
         /* SIDEBAR */
         .sb { width: 330px; background: var(--panel); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
@@ -1647,6 +1673,10 @@
         <canvas id="overlay-canvas"></canvas>
         
         <div class="draw-hint" id="hint">クリックして開始点を設定</div>
+        <!-- ▶ 最新足へ戻るボタン -->
+        <button id="goto-latest-btn" title="最新足へ戻る" onclick="gotoLatestBar()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        </button>
     </div>
 
     <!-- RESIZE SPLITTER -->
@@ -2627,6 +2657,16 @@ var rateSyncTimer = null;
 var rateFetchInFlight = false;
 var currentLivePriceLine = null;
 
+// 過去足追加ロード用フラグ
+var isFetchingMoreBars = false;
+var noMoreHistoricalBars = false; // これ以上過去足がない場合のフラグ
+
+function gotoLatestBar() {
+    if (!chart || !candles || candles.length === 0) return;
+    var len = candles.length;
+    chart.timeScale().setVisibleLogicalRange({ from: len - 100, to: len + 15 });
+}
+
 function traceFlow(label, extra) {
     return;
 }
@@ -2684,6 +2724,84 @@ function initChart() {
             pendingLogicalRange = logicalRange;
         }
         maybeAutoSaveSettings();
+    });
+
+    // 左スクロールで過去足の追加ロード（無限スクロール）
+    chart.timeScale().subscribeVisibleLogicalRangeChange(function(range) {
+        if (isFetchingMoreBars || isLoadingCandles) return;
+        if (!range || !candles || candles.length === 0) return;
+        if (noMoreHistoricalBars) return;
+        // 先頭バーから 30本以内に近づいたら追加フェッチ
+        if (range.from > 30) return;
+
+        var oldestCandle = candles[0];
+        var oldestTime = typeof oldestCandle.time === 'string'
+            ? Math.floor(new Date(oldestCandle.time + 'Z').getTime() / 1000)
+            : oldestCandle.time;
+
+        isFetchingMoreBars = true;
+        fetch(apiHost + '/v1/ticker?symbol=' + currentSymbol + '&tf=' + currentTf + '&before=' + oldestTime)
+            .then(function(res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function(moreData) {
+                if (!Array.isArray(moreData) || moreData.length === 0) {
+                    noMoreHistoricalBars = true;
+                    return;
+                }
+                // 既存タイムスタンプセットを作成して重複排除
+                var existingTimes = {};
+                candles.forEach(function(c) {
+                    var t = typeof c.time === 'string' ? c.time : c.time;
+                    existingTimes[t] = true;
+                });
+
+                var tf = currentTf;
+                var isJpy = currentSymbol.indexOf('JPY') !== -1;
+                var tzSelect = document.getElementById('set-timezone');
+                var tzStr = tzSelect ? tzSelect.value : 'UTC+9';
+                var targetOffset = getTimezoneOffsetSeconds(tzStr);
+                var browserOffset = new Date().getTimezoneOffset() * -60;
+                var shift = targetOffset - browserOffset;
+
+                var newBars = [];
+                moreData.forEach(function(d) {
+                    var isDailyOrWeekly = (tf.toLowerCase() === '1d' || tf.toLowerCase() === '1w');
+                    if (!isDailyOrWeekly && !isBarAlignedForTf(d.time, tf)) return;
+                    var mapped = {
+                        time: mapBarTimeForChart(d.time, tf, targetOffset, shift),
+                        open: d.open,
+                        high: d.high,
+                        low: d.low,
+                        close: d.close
+                    };
+                    if (!existingTimes[mapped.time]) {
+                        existingTimes[mapped.time] = true;
+                        newBars.push(mapped);
+                    }
+                });
+
+                if (newBars.length === 0) {
+                    noMoreHistoricalBars = true;
+                    return;
+                }
+
+                // 既存データと結合してソート
+                var combined = newBars.concat(candles);
+                combined.sort(function(a, b) {
+                    if (typeof a.time === 'string' && typeof b.time === 'string') return a.time.localeCompare(b.time);
+                    return a.time - b.time;
+                });
+                candles = combined;
+                cSeries.setData(candles);
+            })
+            .catch(function(err) {
+                console.warn('[InfiniteScroll] Failed to fetch more bars:', err);
+            })
+            .finally(function() {
+                isFetchingMoreBars = false;
+            });
     });
 
     cSeries = chart.addCandlestickSeries({
@@ -4731,6 +4849,8 @@ function loadTf(tf) {
     stopTickerSync();
     stopRateSync();
     isLoadingCandles = true;
+    isFetchingMoreBars = false;
+    noMoreHistoricalBars = false;
     currentTf = tf;
     syncTfSelect();
     var isJpy = currentSymbol.indexOf('JPY') !== -1;
