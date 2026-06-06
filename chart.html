@@ -4516,22 +4516,21 @@ function startRateSync() {
 }
 
 function syncLatestCandlesFromTicker(reason) {
+    // TradingViewライブストリーム（OANDA）が動作中なら、そちらに任せて二重更新を防ぐ
+    if (tvLive.ws && tvLive.ws.readyState === WebSocket.OPEN) {
+        tickerSyncInFlight = false;
+        return;
+    }
+    // フォールバック: TradingView WSが使えない場合のみYahoo Financeに問い合わせ
     if (isLoadingCandles || tickerSyncInFlight) return;
     tickerSyncInFlight = true;
     var syncToken = tickerSyncToken;
     var tf = currentTf;
-    fetch(apiHost + '/v1/ticker?symbol=' + currentSymbol + '&tf=' + tf)
-        .then(function(res) {
-            if (!res.ok) throw new Error('ticker sync returned ' + res.status);
-            return res.json();
-        })
+    fetchTradingViewCandles(currentSymbol, tf, 5)
         .then(function(realData) {
             if (syncToken !== tickerSyncToken) return;
             if (!Array.isArray(realData) || realData.length === 0) throw new Error('ticker sync returned no candles');
-            var recentBars = realData.filter(function(bar) {
-                return bar && isBarAlignedForTf(bar.time, tf);
-            }).slice(-3);
-            if (recentBars.length === 0) throw new Error('ticker sync returned no aligned candles');
+            var recentBars = realData.slice(-3);
             var currentRateBarTime = getCurrentRateBarTime();
             recentBars.forEach(function(bar, idx) {
                 var patchedBar = bar;
@@ -4855,11 +4854,12 @@ function loadTf(tf) {
             isLoadingCandles = false;
             startTickerSync();
             startRateSync();
+            startTvLiveStream(currentSymbol, currentTf); // OANDAリアルタイム足更新を開始
             renderBarCountdown();
         }, 100);
     }
 
-    // 実データ表示の安定優先: ローカルAPIを正とする。TradingView WSは初期表示の主経路にしない。
+    // バックエンドの中継APIからOANDAデータを直接取得
     fetch(apiHost + '/v1/ticker?symbol=' + currentSymbol + '&tf=' + tf)
         .then(function(res) {
             if (!res.ok) throw new Error('API server returned ' + res.status);
@@ -4869,29 +4869,13 @@ function loadTf(tf) {
             applyCandles(realData);
         })
         .catch(function(apiErr) {
-            console.warn('API data failed, trying TradingView once:', apiErr);
-            fetchTradingViewCandles(currentSymbol, tf)
-                .then(function(realData) {
-                    applyCandles(realData);
-                })
-                .catch(function(tvErr) {
-                    console.warn('TradingView failed, trying AlphaVantage:', tvErr);
-                    fetchAlphaVantageCandles(currentSymbol, tf)
-                        .then(function(realData) {
-                            applyCandles(realData);
-                        })
-                        .catch(function(alphaErr) {
-                            logDebugToBridge("All load options failed", "DataFallback", {
-                                apiError: String(apiErr),
-                                tvError: String(tvErr),
-                                alphaError: String(alphaErr)
-                            });
-                            console.error('All data loading options failed:', apiErr, tvErr, alphaErr);
-                            isLoadingCandles = false;
-                            updateNewsFeed();
-                            toast('実データの取得に失敗しました');
-                        });
-                });
+            logDebugToBridge("Load options failed", "DataLoad", {
+                apiError: String(apiErr)
+            });
+            console.error('Data loading failed:', apiErr);
+            isLoadingCandles = false;
+            updateNewsFeed();
+            toast('実データの取得に失敗しました');
         });
 }
 
