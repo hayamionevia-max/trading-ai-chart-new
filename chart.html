@@ -993,6 +993,147 @@
         body.neon-off .neon-price-widget {
             border-left-color: #8a1a24 !important;
         }
+
+        /* ─── TV REFERENCE MODE OVERRIDES ─── */
+        body.tv-reference-mode header { display: none !important; }
+        body.tv-reference-mode .left-toolbar { display: none !important; }
+        body.tv-reference-mode .resize-handle { display: none !important; }
+        body.tv-reference-mode .sb { display: none !important; }
+        body.tv-reference-mode .chart-datetime-panel { display: none !important; }
+        body.tv-reference-mode .neon-effect-text-toggle { display: none !important; }
+        body.tv-reference-mode #neon-price-widget { display: none !important; }
+        body.tv-reference-mode .ind-legend { display: none !important; }
+        body.tv-reference-mode .chart-wrap { padding-top: 0 !important; }
+        body.tv-reference-mode #chart-el {
+            background: linear-gradient(to bottom, #000000 0%, #01030a 15%, #040716 40%, #0a0a29 72%, #17084a 100%) !important;
+            width: calc(100% - 44px) !important;
+        }
+        body.tv-reference-mode #tv-bottom-bar {
+            width: calc(100% - 44px) !important;
+        }
+        body.tv-reference-mode .tv-current-price-tag {
+            right: 44px !important;
+        }
+        body.tv-reference-mode #rsi-wrap {
+            display: none !important;
+        }
+        
+        /* ─── TV REFERENCE MODE ADDITIONAL UI ─── */
+        .tv-chart-header {
+            position: absolute;
+            top: 14px;
+            left: 56px;
+            z-index: 200;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            pointer-events: none;
+        }
+        .tv-symbol-row {
+            color: #d1d4dc;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .tv-indicator-row {
+            color: rgba(255, 255, 255, 0.38);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .tv-current-price-tag {
+            position: absolute;
+            right: 0;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #22ab94;
+            color: #ffffff;
+            padding: 4px 8px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            z-index: 300;
+            pointer-events: none;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .tv-current-price-tag .symbol {
+            font-weight: 700;
+            opacity: 0.9;
+        }
+        .tv-current-price-tag .price {
+            font-weight: 600;
+        }
+        .tv-current-price-tag .timer {
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        
+        .tv-right-toolbar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 44px;
+            bottom: 34px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding-top: 14px;
+            background: #1c2030;
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 150;
+        }
+        .tv-right-tool-btn {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8c8f99;
+            font-size: 14px;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+        .tv-right-tool-btn:hover {
+            color: #d1d4dc;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        
+        .tv-bottom-bar {
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            background: #1c2030;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #8c8f99;
+            font-size: 11px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            z-index: 150;
+            user-select: none;
+        }
+        .tv-bottom-bar .left {
+            display: flex;
+            gap: 12px;
+        }
+        .tv-bottom-bar .left span {
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            transition: color 0.15s;
+        }
+        .tv-bottom-bar .left span:hover {
+            color: #d1d4dc;
+            background: rgba(255,255,255,0.05);
+        }
+        .tv-bottom-bar .left span.active {
+            color: #2962ff;
+            background: rgba(41,98,255,0.1);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="tab-chart">
@@ -1047,6 +1188,9 @@
         アラート作成
     </button>
     <div class="spacer"></div>
+    <button class="pair-btn" id="tv-mode-btn" onclick="toggleTvReferenceMode()" style="display:flex; align-items:center; gap:4px; margin-right:8px; border: 1px solid rgba(255,255,255,0.15); color: #fff;">
+        <span>TV参照モード</span>
+    </button>
     <button class="gear" onclick="openSet()" title="外観設定">⚙</button>
 </header>
 
@@ -1448,7 +1592,47 @@
                 </div>
             </div>
         </div>
+        
+        <!-- TradingView Symbol/Indicator Header -->
+        <div class="tv-chart-header" id="tv-chart-header" style="display:none;">
+            <div class="tv-symbol-row" id="tv-symbol-row">🇺🇸 米ドル／日本円・15・OANDA</div>
+            <div class="tv-indicator-row">Wemof Strategy (14, 2, 3)</div>
+            <div class="tv-indicator-row">Wemof Strategy LIVE (15m)</div>
+        </div>
+
+        <!-- TradingView Current Price axis badge -->
+        <div id="tvCurrentPriceTag" class="tv-current-price-tag" style="display:none;">
+            <span class="symbol" id="tv-price-tag-symbol">USDJPY</span>
+            <span class="price" id="tv-price-tag-price">160.265</span>
+            <span class="timer" id="tv-price-tag-timer">00:57</span>
+        </div>
+
         <div id="chart-el"></div>
+
+        <!-- TradingView Right Toolbar -->
+        <div class="tv-right-toolbar" id="tv-right-toolbar" style="display:none;">
+            <div class="tv-right-tool-btn" title="ウォッチリスト">📃</div>
+            <div class="tv-right-tool-btn" title="アラート">🔔</div>
+            <div class="tv-right-tool-btn" title="カレンダー">📅</div>
+            <div class="tv-right-tool-btn" title="アイデア">💡</div>
+            <div class="tv-right-tool-btn" title="チャット">💬</div>
+        </div>
+
+        <!-- TradingView Bottom Bar -->
+        <div class="tv-bottom-bar" id="tv-bottom-bar" style="display:none;">
+            <div class="left">
+                <span>1D</span>
+                <span>5D</span>
+                <span>1M</span>
+                <span>3M</span>
+                <span>6M</span>
+                <span>YTD</span>
+                <span>1Y</span>
+                <span>5Y</span>
+                <span class="active">All</span>
+            </div>
+            <div class="right" id="tv-bottom-timezone">UTC+9</div>
+        </div>
         <div id="rsi-wrap">
             <div id="rsi-el"></div>
             <div style="position: absolute; top: 5px; left: 10px; font-size: 10px; color: var(--muted); font-weight: 600; pointer-events: none; z-index: 10;">RSI (14)</div>
@@ -2510,8 +2694,8 @@ function initChart() {
         priceLineVisible: false,
         priceFormat: {
             type: 'price',
-            precision: 3,
-            minMove: 0.001
+            precision: 5,
+            minMove: 0.00001
         }
     });
 
@@ -2750,6 +2934,26 @@ function initNeonCandleCanvas() {
         requestAnimationFrame(drawNeonCandles);
     });
     resizeNeonCanvas();
+
+    // Loop to continuously monitor coordinate changes (Y-axis scaling, vertical zoom/drag, etc.) and redraw overlays in sync
+    var lastTestY = null;
+    var lastTestX = null;
+    function syncOverlayLoop() {
+        if (cSeries && chart) {
+            var testY = cSeries.priceToCoordinate(100);
+            var testX = chart.timeScale().timeToCoordinate(0);
+            if (testY !== lastTestY || testX !== lastTestX) {
+                lastTestY = testY;
+                lastTestX = testX;
+                drawNeonCandles();
+                if (typeof updateTvCurrentPriceTag === 'function') {
+                    updateTvCurrentPriceTag();
+                }
+            }
+        }
+        requestAnimationFrame(syncOverlayLoop);
+    }
+    requestAnimationFrame(syncOverlayLoop);
 }
 
 function resizeNeonCanvas() {
@@ -2767,11 +2971,13 @@ function resizeNeonCanvas() {
 
 function drawNeonCandles() {
     traceFlow('drawNeonCandles', { candleCount: candles ? candles.length : 0 });
-    if (!neonCandleCtx || !neonCandleCanvas || !candles || candles.length === 0 || !cSeries || !chart) return;
+    if (!neonCandleCtx || !neonCandleCanvas) return;
     var ctx = neonCandleCtx;
     var W = neonCandleCanvas.width;
     var H = neonCandleCanvas.height;
     ctx.clearRect(0, 0, W, H);
+    if (isTvReferenceMode) return;
+    if (!candles || candles.length === 0 || !cSeries || !chart) return;
     var clipBottom = Math.max(0, H - 28);
 
     // Compute bar width from adjacent candles
@@ -2812,9 +3018,17 @@ function drawNeonCandles() {
             var rgb     = hexToRgb(mainHex) || { r: 255, g: 255, b: 255 };
             var r = rgb.r, g = rgb.g, b = rgb.b;
 
-            var bodyTop    = Math.min(openY, closeY);
-            var bodyBottom = Math.max(openY, closeY);
-            var bodyH      = Math.max(bodyBottom - bodyTop, 1);
+            var bodyDiff = Math.abs(openY - closeY);
+            var bodyTop, bodyBottom;
+            if (bodyDiff < 1.5) {
+                var midY = (openY + closeY) / 2;
+                bodyTop = midY - 0.75;
+                bodyBottom = midY + 0.75;
+            } else {
+                bodyTop = Math.min(openY, closeY);
+                bodyBottom = Math.max(openY, closeY);
+            }
+            var bodyH      = bodyBottom - bodyTop;
             var cxR = Math.round(cx);
             var bx  = Math.round(cx - bodyW / 2);
 
@@ -2859,7 +3073,7 @@ function drawNeonCandles() {
             if (showBody || showBorder) {
                 var clampedTop = Math.max(-8, Math.min(bodyTop, clipBottom + 8));
                 var clampedBottom = Math.max(-8, Math.min(bodyBottom, clipBottom + 8));
-                var clampedBodyH = Math.max(clampedBottom - clampedTop, 2);
+                var clampedBodyH = Math.max(clampedBottom - clampedTop, bodyDiff < 1.5 ? 1.5 : 2);
                 if (showBody) {
                     if (neonEffectEnabled) {
                         ctx.shadowBlur = 10;
@@ -4105,6 +4319,9 @@ function getNextBarCloseEpoch(nowEpoch) {
 }
 
 function renderBarCountdown() {
+    if (typeof updateTvCurrentPriceTag === 'function') {
+        updateTvCurrentPriceTag();
+    }
     var badge = document.getElementById('bar-countdown');
     var checkbox = document.getElementById('set-show-cd');
     if (!badge) return;
@@ -4249,7 +4466,24 @@ function stopRateSync() {
     }
 }
 
+function isFXMarketClosed() {
+    var localTime = new Date();
+    // Convert to JST (UTC+9) explicitly
+    var jstTime = new Date(localTime.getTime() + (localTime.getTimezoneOffset() + 540) * 60 * 1000);
+    var day = jstTime.getDay(); // 0: 日曜, 1: 月曜, ..., 6: 土曜
+    var hour = jstTime.getHours();
+    if (day === 6) { // 土曜日 (JST)
+        if (hour >= 7) return true;
+    } else if (day === 0) { // 日曜日 (JST)
+        return true;
+    } else if (day === 1) { // 月曜日 (JST)
+        if (hour < 7) return true;
+    }
+    return false;
+}
+
 function requestLiveRateUpdate() {
+    if (isFXMarketClosed()) return; // 週末（閉場中）はYahoo Financeからのレート取得を行わない
     if (rateFetchInFlight || isLoadingCandles || !candles || candles.length === 0) return;
     rateFetchInFlight = true;
 
@@ -4336,6 +4570,20 @@ function applyRatePriceToLatestCandle(price) {
     if (!candles || candles.length === 0) return;
     var last = candles[candles.length - 1];
     var nowEpoch = Math.floor(Date.now() / 1000);
+
+    // 週末（閉場時間）ガード: 土曜朝7:00 〜 月曜朝7:00 (JST基準) はリアルタイム更新での新規ローソク足作成・更新をおこなわない
+    if (isFXMarketClosed()) {
+        // 週末は新しい足は絶対に作らず、単に最後の足を現在価格で更新するだけにする
+        upsertLatestCandle({
+            time: last.time,
+            open: last.open,
+            high: Math.max(last.high, price),
+            low: Math.min(last.low, price),
+            close: price
+        }, false);
+        return;
+    }
+
     var barTime = mapBarTimeForChart(nowEpoch, currentTf, currentTargetOffset, currentTimeShift);
 
     if (barTime === undefined || barTime === null) {
@@ -4349,6 +4597,16 @@ function applyRatePriceToLatestCandle(price) {
             isForwardBar = barTime > last.time;
         } else {
             isForwardBar = Number(barTime) > Number(last.time);
+        }
+    }
+
+    // 新しい足が前回の足より2.5倍以上の時間間隔で先にある場合（データ欠損・閉場・システム再起動などのギャップ）、
+    // 無理に中間の無い足を作って変な時間跳びを発生させないよう、新規足の追加を防ぐ
+    var intervalSeconds = getTfIntervalSeconds(currentTf);
+    if (isForwardBar && intervalSeconds) {
+        var diff = Number(barTime) - Number(last.time);
+        if (diff > intervalSeconds * 2.5) {
+            isForwardBar = false;
         }
     }
 
@@ -4525,6 +4783,26 @@ function loadTf(tf) {
         candles = uniqueCandles;
         traceFlow('setData from applyCandles', { points: candles.length, tf: tf });
         cSeries.setData(candles);
+        // Y軸精度をシンボルに合わせて確実に設定
+        var precVal = document.getElementById('set-precision') ? document.getElementById('set-precision').value : 'default';
+        if (precVal !== 'default') {
+            var customPrec = parseInt(precVal);
+            cSeries.applyOptions({ priceFormat: { type: 'price', precision: customPrec, minMove: 1 / Math.pow(10, customPrec) } });
+        } else {
+            var symPrec = (currentSymbol.indexOf('JPY') !== -1) ? 3 : 5;
+            var symMinMove = (currentSymbol.indexOf('JPY') !== -1) ? 0.001 : 0.00001;
+            cSeries.applyOptions({ priceFormat: { type: 'price', precision: symPrec, minMove: symMinMove } });
+        }
+        if (candles.length > 0) {
+            var lastCandle = candles[candles.length - 1];
+            var prevP = liveP;
+            liveP = lastCandle.close;
+            updateLivePriceUI(prevP, precision);
+        }
+        try {
+            chart.priceScale('right').applyOptions({ autoScale: true });
+            chart.priceScale('left').applyOptions({ autoScale: true });
+        } catch(e) {}
         setTimeout(drawNeonCandles, 120);
         
         if (chart) {
@@ -4665,6 +4943,7 @@ function runAI(anim) {
 
     function doRender() {
         clearAI();
+        if (isTvReferenceMode) return;
         var db = currentAIAnalysis;
         if (!db) return;
 
@@ -6319,10 +6598,13 @@ function applyUltimateSettings() {
         });
     } else {
         traceFlow('cSeries.applyOptions from applyUltimateSettings:defaultPrecision');
+        var defPrec = (currentSymbol.indexOf('JPY') !== -1) ? 3 : 5;
+        var defMinMove = (currentSymbol.indexOf('JPY') !== -1) ? 0.001 : 0.00001;
         cSeries.applyOptions({
             priceFormat: {
-                precision: 3,
-                minMove: 0.001
+                type: 'price',
+                precision: defPrec,
+                minMove: defMinMove
             }
         });
     }
@@ -6634,6 +6916,9 @@ function updateLivePriceUI(prev, precision) {
             calcIndicators();
             checkAlerts(liveP);
             requestAnimationFrame(drawNeonCandles);
+            if (typeof updateTvCurrentPriceTag === 'function') {
+                updateTvCurrentPriceTag();
+            }
             // Refresh AI widgets dynamically to reflect changing spot price in real time!
             updateAISidebar();
         } catch(e) {
@@ -7523,6 +7808,195 @@ function switchMobileTab(tab) {
         window.dispatchEvent(new Event('resize'));
     }, 50);
 }
+
+/* ─── TV REFERENCE MODE LOGIC ─── */
+var isTvReferenceMode = false;
+
+function toggleTvReferenceMode() {
+    setTvReferenceMode(!isTvReferenceMode);
+}
+
+function updateTvHeaderUI() {
+    var symRow = document.getElementById('tv-symbol-row');
+    if (symRow) {
+        var tfLabel = currentTf.toUpperCase();
+        symRow.innerText = '🇺🇸 ' + currentSymbol + ' · ' + tfLabel + ' · OANDA';
+    }
+}
+
+function updateTvCurrentPriceTag() {
+    var tag = document.getElementById('tvCurrentPriceTag');
+    if (!tag || !isTvReferenceMode || !cSeries || !chart) return;
+
+    var price = liveP;
+    var y = cSeries.priceToCoordinate(price);
+    if (y === null || y === undefined) {
+        tag.style.display = 'none';
+        return;
+    }
+    
+    tag.style.display = 'flex';
+    var chartEl = document.getElementById('chart-el');
+    tag.style.top = (y + chartEl.offsetTop) + 'px';
+    
+    // Update price text
+    var isJpy = currentSymbol.indexOf('JPY') !== -1;
+    var precision = isJpy ? 3 : 5;
+    document.getElementById('tv-price-tag-price').innerText = price.toFixed(precision);
+    
+    // Update symbol
+    document.getElementById('tv-price-tag-symbol').innerText = currentSymbol;
+    
+    // Update countdown timer
+    var nowEpoch = Math.floor(Date.now() / 1000);
+    var remain = Math.max(0, getNextBarCloseEpoch(nowEpoch) - nowEpoch);
+    var hours = Math.floor(remain / 3600);
+    var minutes = Math.floor((remain % 3600) / 60);
+    var seconds = remain % 60;
+    var timeStr = hours > 0
+        ? (pad2(hours) + ':' + pad2(minutes) + ':' + pad2(seconds))
+        : (pad2(minutes) + ':' + pad2(seconds));
+    document.getElementById('tv-price-tag-timer').innerText = timeStr;
+}
+
+function setTvReferenceMode(enabled) {
+    isTvReferenceMode = enabled;
+    
+    // 1. Toggle body class and buttons
+    if (enabled) {
+        document.body.classList.add('tv-reference-mode');
+        var exitBtn = document.getElementById('tv-mode-exit-btn');
+        if (exitBtn) exitBtn.style.display = 'block';
+        var modeBtn = document.getElementById('tv-mode-btn');
+        if (modeBtn) {
+            modeBtn.classList.add('on');
+            modeBtn.querySelector('span').innerText = 'TV参照モード: ON';
+        }
+    } else {
+        document.body.classList.remove('tv-reference-mode');
+        var exitBtn = document.getElementById('tv-mode-exit-btn');
+        if (exitBtn) exitBtn.style.display = 'none';
+        var modeBtn = document.getElementById('tv-mode-btn');
+        if (modeBtn) {
+            modeBtn.classList.remove('on');
+            modeBtn.querySelector('span').innerText = 'TV参照モード';
+        }
+    }
+    
+    // 2. Hide/show TradingView layout elements
+    var tvHeader = document.getElementById('tv-chart-header');
+    if (tvHeader) tvHeader.style.display = enabled ? 'block' : 'none';
+    var tvPriceTag = document.getElementById('tvCurrentPriceTag');
+    if (tvPriceTag) tvPriceTag.style.display = enabled ? 'flex' : 'none';
+    var tvRightBar = document.getElementById('tv-right-toolbar');
+    if (tvRightBar) tvRightBar.style.display = enabled ? 'flex' : 'none';
+    var tvBottomBar = document.getElementById('tv-bottom-bar');
+    if (tvBottomBar) tvBottomBar.style.display = enabled ? 'flex' : 'none';
+    
+    if (enabled) {
+        updateTvHeaderUI();
+        clearAI();
+    }
+    
+    // 3. Adjust cSeries options for candlestick colors
+    if (cSeries) {
+        if (enabled) {
+            cSeries.applyOptions({
+                upColor: '#ffffff',
+                downColor: '#ff1f1f',
+                borderUpColor: '#ffffff',
+                borderDownColor: '#ff1f1f',
+                wickUpColor: '#ffffff',
+                wickDownColor: '#ff1f1f',
+                lastValueVisible: true,
+                priceLineVisible: true
+            });
+        } else {
+            // Restore transparent to let neon canvas draw them
+            cSeries.applyOptions({
+                upColor: 'transparent',
+                downColor: 'transparent',
+                borderUpColor: 'transparent',
+                borderDownColor: 'transparent',
+                wickUpColor: 'transparent',
+                wickDownColor: 'transparent',
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+        }
+    }
+    
+    // 4. Adjust custom price line settings
+    if (currentLivePriceLine) {
+        if (enabled) {
+            currentLivePriceLine.applyOptions({
+                color: '#1dff2f',
+                lineStyle: 1, // Dotted
+                axisLabelVisible: false
+            });
+        } else {
+            var color = document.getElementById('set-price-line-color') ? document.getElementById('set-price-line-color').value : '#00ff2a';
+            currentLivePriceLine.applyOptions({
+                color: color,
+                lineStyle: 0, // Solid
+                axisLabelVisible: true
+            });
+        }
+    }
+    
+    // 5. Adjust chart options (grid, scales, layout background/text)
+    if (chart) {
+        if (enabled) {
+            chart.applyOptions({
+                layout: {
+                    textColor: '#8c8f99',
+                    fontSize: 12
+                },
+                grid: {
+                    vertLines: { visible: false },
+                    horzLines: { visible: true, color: 'rgba(255, 255, 255, 0.04)' }
+                },
+                timeScale: {
+                    rightOffset: 18,
+                    barSpacing: 8
+                }
+            });
+        } else {
+            // Restore default neon settings
+            chart.applyOptions({
+                layout: {
+                    textColor: '#00e5ff',
+                    fontSize: 18
+                },
+                grid: {
+                    vertLines: { visible: false },
+                    horzLines: { visible: false }
+                },
+                timeScale: {
+                    rightOffset: 15
+                }
+            });
+        }
+    }
+    
+    // 6. Force resize chart
+    setTimeout(function() {
+        var e = document.getElementById('chart-el');
+        if (chart && e) {
+            chart.resize(e.offsetWidth, e.offsetHeight);
+        }
+        // Force redraw neon (will clear itself if reference mode is on)
+        drawNeonCandles();
+        updateTvCurrentPriceTag();
+    }, 50);
+}
+
+// Esc key listener to exit TV reference mode
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && isTvReferenceMode) {
+        setTvReferenceMode(false);
+    }
+});
 </script>
 
 <!-- Mobile Bottom Navigation Bar -->
@@ -7536,6 +8010,11 @@ function switchMobileTab(tab) {
         <span class="label">AI分析</span>
     </button>
 </div>
+
+<!-- Floating Exit Button for TV Reference Mode -->
+<button id="tv-mode-exit-btn" onclick="setTvReferenceMode(false)" style="position:fixed; bottom:16px; right:16px; z-index:99999; padding:8px 16px; background:rgba(30,34,45,0.92); border:1px solid #ff1f1f; color:#ff1f1f; border-radius:6px; font-weight:600; font-size:12px; cursor:pointer; display:none; backdrop-filter:blur(6px); transition:all 0.15s; font-family:'Inter',sans-serif;">
+    TV参照モード終了 (Esc)
+</button>
 
 </body>
 </html>
