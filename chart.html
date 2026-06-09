@@ -4987,14 +4987,25 @@ function loadTf(tf) {
             applyCandles(realData);
         })
         .catch(function(apiErr) {
-            logDebugToBridge("Load options failed", "DataLoad", {
-                apiError: String(apiErr)
-            });
-            console.error('Data loading failed:', apiErr);
-            isLoadingCandles = false;
-            updateNewsFeed();
-            toast('実データの取得に失敗しました');
+            console.warn('Backend ticker API failed, falling back to browser-side TradingView WebSocket:', apiErr);
+            // ブラウザ側から直接 TradingView WebSocket (OANDA) に接続して取得を試みる
+            fetchTradingViewCandles(currentSymbol, tf)
+                .then(function(realData) {
+                    applyCandles(realData);
+                    toast('TradingView直WSからデータをロードしました');
+                })
+                .catch(function(wsErr) {
+                    logDebugToBridge("Load options failed", "DataLoad", {
+                        apiError: String(apiErr),
+                        wsError: String(wsErr)
+                    });
+                    console.error('Data loading failed (both backend and browser direct WS):', wsErr);
+                    isLoadingCandles = false;
+                    updateNewsFeed();
+                    toast('実データの取得に失敗しました');
+                });
         });
+
 }
 
 function setTf(tf) {

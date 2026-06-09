@@ -568,47 +568,43 @@ def get_ticker(symbol: str = "USDJPY", tf: str = "15m", before: Optional[int] = 
             
         return data
     except Exception as e:
-        print(f"[v1/ticker] TradingView WS fetch failed: {e}. Falling back to Yahoo Finance.")
-        return get_ticker_yahoo_fallback(symbol, tf)
+        print(f"[v1/ticker] TradingView WS fetch failed: {e}. Failing request to allow client-side direct WS fallback.")
+        raise HTTPException(status_code=500, detail=f"TradingView WS fetch failed: {str(e)}")
+
+# Rate cache to prevent DOS / rate-limiting on TradingView WS
+rate_cache = {}
 
 @app.get("/v1/rate")
 def get_rate(symbol: str = "USDJPY"):
-    symbol_map = {
-        "USDJPY": "USDJPY=X",
-        "EURUSD": "EURUSD=X",
-        "GBPUSD": "GBPUSD=X",
-        "EURJPY": "EURJPY=X",
-        "AUDJPY": "AUDJPY=X"
-    }
-    ticker_symbol = symbol_map.get(symbol.upper(), f"{symbol.upper()}=X")
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1m&range=1d"
+    global rate_cache
+    s = symbol.upper()
+    now = time.time()
+    
+    # Return cached price if it is less than 5 seconds old
+    if s in rate_cache:
+        cache_time, price = rate_cache[s]
+        if now - cache_time < 5.0:
+            return {"symbol": symbol, "price": price}
+            
     try:
-        status_code, body, meta = fetch_url(url, timeout=5)
-        print(
-            f"[v1/rate] curl_fallback_used={meta['curl_fallback_used']} "
-            f"requests_status={meta.get('requests_status')} "
-            f"curl_status={meta.get('curl_status')} "
-            f"requests_error={meta['requests_error']!r} "
-            f"response_length={meta['response_length']} "
-            f"body_head={meta.get('body_head', '')[:200]!r}"
-        )
-        if status_code == 200:
-            try:
-                js = requests.models.complexjson.loads(body)
-            except Exception as je:
-                print(f"[v1/rate] JSON parse failed: {je} body_head={(body or '')[:300]!r}")
-                raise HTTPException(status_code=502, detail=f"Yahoo response is not JSON: {je}")
-            res = js.get("chart", {}).get("result", [])
-            if res:
-                meta = res[0].get("meta", {})
-                price = meta.get("regularMarketPrice")
-                if price is not None:
-                    is_jpy_pair = "JPY" in ticker_symbol
-                    round_digits = 3 if is_jpy_pair else 5
-                    return {"symbol": symbol, "price": round(price, round_digits)}
+        # Fetch the latest 1m candle from TradingView WS
+        data = fetch_tradingview_candles_backend(s, "1m", 5)
+        if data:
+            price = data[-1]["close"]
+            is_jpy_pair = "JPY" in s
+            round_digits = 3 if is_jpy_pair else 5
+            rounded_price = round(price, round_digits)
+            rate_cache[s] = (now, rounded_price)
+            return {"symbol": symbol, "price": rounded_price}
         raise HTTPException(status_code=404, detail="Rate not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Fallback to stale cache if available when WS fails
+        if s in rate_cache:
+            cache_time, price = rate_cache[s]
+            return {"symbol": symbol, "price": price, "cached": True}
+        print(f"[v1/rate] TradingView WS rate fetch failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Rate fetch failed: {str(e)}")
+
 
 def get_fallback_news():
     import datetime
