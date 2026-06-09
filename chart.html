@@ -1832,8 +1832,8 @@
                             <span>実体</span>
                         </label>
                         <div style="display: flex; gap: 8px;">
-                            <label class="swatch" id="sw-up" style="background:#ffffff"><input type="color" value="#ffffff" oninput="aC('up',this)"></label>
-                            <label class="swatch" id="sw-dn" style="background:#f23645"><input type="color" value="#f23645" oninput="aC('dn',this)"></label>
+                            <label class="swatch" id="sw-up" style="background:#00e676"><input type="color" value="#00e676" oninput="aC('up',this)"></label>
+                            <label class="swatch" id="sw-dn" style="background:#ff007f"><input type="color" value="#ff007f" oninput="aC('dn',this)"></label>
                         </div>
                     </div>
                     
@@ -1843,8 +1843,8 @@
                             <span>枠</span>
                         </label>
                         <div style="display: flex; gap: 8px;">
-                            <label class="swatch" id="sw-bup" style="background:#ffffff"><input type="color" value="#ffffff" oninput="aC('bup',this)"></label>
-                            <label class="swatch" id="sw-bdn" style="background:#f23645"><input type="color" value="#f23645" oninput="aC('bdn',this)"></label>
+                            <label class="swatch" id="sw-bup" style="background:#00e676"><input type="color" value="#00e676" oninput="aC('bup',this)"></label>
+                            <label class="swatch" id="sw-bdn" style="background:#ff007f"><input type="color" value="#ff007f" oninput="aC('bdn',this)"></label>
                         </div>
                     </div>
                     
@@ -1854,8 +1854,8 @@
                             <span>ヒゲ</span>
                         </label>
                         <div style="display: flex; gap: 8px;">
-                            <label class="swatch" id="sw-wup" style="background:#ffffff"><input type="color" value="#ffffff" oninput="aC('wup',this)"></label>
-                            <label class="swatch" id="sw-wdn" style="background:#f23645"><input type="color" value="#f23645" oninput="aC('wdn',this)"></label>
+                            <label class="swatch" id="sw-wup" style="background:#00e676"><input type="color" value="#00e676" oninput="aC('wup',this)"></label>
+                            <label class="swatch" id="sw-wdn" style="background:#ff007f"><input type="color" value="#ff007f" oninput="aC('wdn',this)"></label>
                         </div>
                     </div>
                     
@@ -2445,9 +2445,9 @@ window.addEventListener('unhandledrejection', function(e) {
 /* ─── COLORS ─── */
 var C = { 
     bg:'#0b0e14', gd:'#151924', 
-    up:'#ffffff', dn:'#f23645', 
-    bup:'#ffffff', bdn:'#f23645',
-    wup:'#ffffff', wdn:'#f23645',
+    up:'#00e676', dn:'#ff007f', 
+    bup:'#00e676', bdn:'#ff007f',
+    wup:'#00e676', wdn:'#ff007f',
     sl:'#00e676', rl:'#ff007f', trl:'#00b0ff', ml:'#ffb300' 
 };
 
@@ -6644,9 +6644,9 @@ function resetC() {
     localStorage.removeItem('userDefaultSettings');
     var def = { 
         bg:'#0b0e14', gd:'#151924', 
-        up:'#ffffff', dn:'#f23645', 
-        bup:'#ffffff', bdn:'#f23645',
-        wup:'#ffffff', wdn:'#f23645',
+        up:'#00e676', dn:'#ff007f', 
+        bup:'#00e676', bdn:'#ff007f',
+        wup:'#00e676', wdn:'#ff007f',
         sl:'#00e676', rl:'#ff007f', trl:'#00b0ff', ml:'#ffb300' 
     };
     for (var k in def) {
@@ -7204,7 +7204,7 @@ function selectEmojiStamp(emoji) {
 
 /* ─── SAVED DEFAULTS PRESETS MANAGER ─── */
 (function() {
-    var CURRENT_VERSION = 4;
+    var CURRENT_VERSION = 5;
     var loadedVer = parseInt(localStorage.getItem('settingsVersion') || '0');
     if (loadedVer < CURRENT_VERSION) {
         [
@@ -7408,7 +7408,7 @@ function applySavedDefault() {
         var s = JSON.parse(raw);
         if (!s) return false;
 
-        if (!s.version || s.version < 4) {
+        if (!s.version || s.version < 5) {
             localStorage.removeItem(SETTINGS_STORAGE_KEY);
             return false;
         }
