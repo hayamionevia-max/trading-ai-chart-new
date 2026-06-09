@@ -7203,6 +7203,25 @@ function selectEmojiStamp(emoji) {
 }
 
 /* ─── SAVED DEFAULTS PRESETS MANAGER ─── */
+(function() {
+    var CURRENT_VERSION = 4;
+    var loadedVer = parseInt(localStorage.getItem('settingsVersion') || '0');
+    if (loadedVer < CURRENT_VERSION) {
+        [
+            'userDefaultSettings',
+            'chartDateTimeColor', 'chartDateTimeSize',
+            'neonPriceColor', 'neonPriceSize', 'neonPriceVisible', 'neonEffectEnabled',
+            'canvasBgType', 'canvasBgTop', 'canvasBgBottom', 'canvasBgGradStop',
+            'canvasGridType', 'canvasGridColor',
+            'canvasScaleTextColor', 'canvasScaleTextSize',
+            'userSidebarWidth'
+        ].forEach(function(key) {
+            localStorage.removeItem(key);
+        });
+        localStorage.setItem('settingsVersion', String(CURRENT_VERSION));
+    }
+})();
+
 var SETTINGS_STORAGE_KEY = 'userDefaultSettings';
 var AUTO_SAVE_STORAGE_KEY = 'chartAutoSaveEnabled';
 var dateTimeColor = localStorage.getItem('chartDateTimeColor') || '#00e676';
