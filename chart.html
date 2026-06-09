@@ -1908,7 +1908,7 @@
                     </div>
                     <div class="cr">
                         <span>発光色 (Neon Color)</span>
-                        <label class="swatch" id="sw-neon" style="background:#ff007f"><input type="color" id="set-neon-color" value="#ff007f" oninput="setNeonColor(this.value)"></label>
+                        <label class="swatch" id="sw-neon" style="background:#ffffff"><input type="color" id="set-neon-color" value="#ffffff" oninput="setNeonColor(this.value)"></label>
                     </div>
                     <div class="grp-ttl">チャート日時表示</div>
                     <div class="cr">
@@ -1920,7 +1920,7 @@
                     </div>
                     <div class="cr">
                         <span>表示色</span>
-                        <label class="swatch" id="sw-dt" style="background:#7aa7ff"><input type="color" id="set-dt-color" value="#7aa7ff" oninput="setDateTimeColor(this.value)"></label>
+                        <label class="swatch" id="sw-dt" style="background:#00e676"><input type="color" id="set-dt-color" value="#00e676" oninput="setDateTimeColor(this.value)"></label>
                     </div>
                 </div>
                 
@@ -2623,7 +2623,7 @@ function detectLevels(fullCandles, symbol) {
 }
 
 /* ─── CHART INIT ─── */
-var chart, cSeries, currentTf = '5m';
+var chart, cSeries, currentTf = '1m';
 var aiLines = [], manLines = [];
 var tool = 'cur', drawPt = null;
 var activeLeafTool = 'cur_arrow';
@@ -7205,7 +7205,7 @@ function selectEmojiStamp(emoji) {
 /* ─── SAVED DEFAULTS PRESETS MANAGER ─── */
 var SETTINGS_STORAGE_KEY = 'userDefaultSettings';
 var AUTO_SAVE_STORAGE_KEY = 'chartAutoSaveEnabled';
-var dateTimeColor = localStorage.getItem('chartDateTimeColor') || '#7aa7ff';
+var dateTimeColor = localStorage.getItem('chartDateTimeColor') || '#00e676';
 var dateTimeSize = localStorage.getItem('chartDateTimeSize') || '64';
 
 function captureVisibleLogicalRange() {
@@ -7328,7 +7328,7 @@ function captureSettingsState() {
         else controls[id] = el.value;
     });
     return {
-        version: 3,
+        version: 4,
         controls: controls,
         colors: {
             up: C.up,
@@ -7389,7 +7389,7 @@ function applySavedDefault() {
         var s = JSON.parse(raw);
         if (!s) return false;
 
-        if (!s.version || s.version < 3) {
+        if (!s.version || s.version < 4) {
             localStorage.removeItem(SETTINGS_STORAGE_KEY);
             return false;
         }
@@ -7456,7 +7456,7 @@ function handleTemplateSelect(value) {
 }
 
 /* ─── NEON SPOT PRICE DISPLAY ENGINE ─── */
-var neonColor = localStorage.getItem('neonPriceColor') || '#ff007f';
+var neonColor = localStorage.getItem('neonPriceColor') || '#ffffff';
 var neonSize = localStorage.getItem('neonPriceSize') || '32';
 var neonVisible = localStorage.getItem('neonPriceVisible') !== 'false';
 
